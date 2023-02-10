@@ -7,56 +7,6 @@ from scipy import ndimage
 from skimage.util import random_noise
 
 
-def convert_image_uint8(image):
-    image = (image-np.min(image))/(np.max(image)-np.min(image))
-    image = 255 * image  # Now scale by 255
-    return image.astype(np.uint8)
-
-
-def pixel_diff_norm(frames):
-    ''' Computes the mean pixel difference between the first frame and the
-        remaining frames in a Numpy array of frames.
-    '''
-    n, h, w, c = frames.shape
-    pdn = [cv2.norm(frames[i], frames[0], cv2.NORM_L1) / (h * w)
-           for i in range(1, n)]
-    return np.array(pdn)
-
-
-def load_video_frames(filename):
-    ''' Loads frames from specified video 'filename' and returns them as a
-        Numpy array.
-    '''
-    frames = []
-    vc = cv2.VideoCapture(filename)
-    if vc.isOpened():
-        captured, frame = vc.read()
-        if captured:
-            frames.append(frame)
-        while captured:
-            captured, frame = vc.read()
-            if captured:
-                frames.append(frame)
-        vc.release()
-    return np.array(frames)
-
-
-class SimpleSensor:
-    def __init__(self,
-                 source=0,
-                 exposure=-7,
-                 **kwargs
-                 ):
-        self.cam = cv2.VideoCapture(source)
-        self.cam.set(cv2.CAP_PROP_EXPOSURE, exposure)
-        for _ in range(5):
-            self.cam.read()  # Hack - camera transient
-
-    def load(self):
-        _, img = self.cam.read()
-        return img
-
-
 def process_image(
     image,
     gray=True,
