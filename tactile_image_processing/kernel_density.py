@@ -1,7 +1,7 @@
 """
 Author: John Lloyd
 """
-
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.spatial.distance as ssd
@@ -61,6 +61,7 @@ def main(
         encoder = KeypointEncoder()
         view = KeypointView(color=(0, 255, 0))
         display = CvVideoDisplay(name='preview')
+        display.open()
 
         # initialise taxels
         x0, y0, x1, y1 = bbox
@@ -75,7 +76,6 @@ def main(
         init_density = pin_density(keypoints[:, :2], taxels, kernel_width=kernel_width)
 
         # start a plot for density delta
-        display.open()
         fig, ax = plt.subplots(1, 1)
         img = ax.imshow(
             init_density.reshape((taxel_array_length, -1)),
@@ -89,6 +89,7 @@ def main(
         plt.show(block=False)
 
         while True:
+            start_time = time.time()
             frame = camera.read()
             keypoints = encoder.encode(detector.detect(frame))
             frame = view.draw(frame, keypoints)
@@ -105,10 +106,18 @@ def main(
             if k == 27:  # Esc key to stop
                 break
 
+            print('FPS: ', 1.0 / (time.time() - start_time))
+
     finally:
         camera.close()
         display.close()
 
 
 if __name__ == '__main__':
-    main()
+    main(
+        camera_source=8,
+        kernel_width=15,
+        taxel_array_length=128,
+        v_abs_max=5e-5,
+        bbox=[80, 25, 530, 475],
+    )
