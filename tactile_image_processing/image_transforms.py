@@ -100,10 +100,10 @@ def threshold_image(image, thresh_params=[61, 5]):
     return image
 
 
-def apply_circle_mask(image, radius=110):
+def apply_circle_mask(image, radius=110, circle_mask_offset=[0, 0]):
     hh, ww = image.shape[:2]
-    hc = hh // 2
-    wc = ww // 2
+    hc = (hh // 2) + circle_mask_offset[0]
+    wc = (ww // 2) + circle_mask_offset[1]
 
     mask = np.ones(shape=(hh, ww))
     mask = cv2.circle(

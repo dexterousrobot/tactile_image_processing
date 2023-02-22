@@ -8,10 +8,12 @@ import scipy.spatial.distance as ssd
 
 import cv2
 
-from vsp.video_stream import CvVideoCamera, CvVideoDisplay
-from vsp.detector import CvBlobDetector
-from vsp.encoder import KeypointEncoder
-from vsp.view import KeypointView
+from vsp.video_stream import CvVideoCamera
+
+from tactile_image_processing.pin_extraction_methods import BlobDetector
+from tactile_image_processing.pin_extraction_methods import ContourBlobDetector
+from tactile_image_processing.pin_extraction_methods import DoHDetector
+from tactile_image_processing.pin_extraction_methods import PeakDetector
 
 
 def pin_density(pin_positions, taxel_positions, kernel_width):
@@ -30,22 +32,6 @@ def main(
     bbox=[80, 25, 530, 475],
 ):
 
-    blob_detector_params = {
-          'min_threshold': 118,
-          'max_threshold': 188,
-          'filter_by_color': True,
-          'blob_color': 255,
-          'filter_by_area': True,
-          'min_area': 41,
-          'max_area': 134.5,
-          'filter_by_circularity': True,
-          'min_circularity': 0.20,
-          'filter_by_inertia': True,
-          'min_inertia_ratio': 0.36,
-          'filter_by_convexity': True,
-          'min_convexity': 0.39,
-      }
-
     try:
         # Windows
         # camera = CvVideoCamera(source=camera_source, api_name='DSHOW', is_color=False)
@@ -57,11 +43,10 @@ def main(
             camera.read()   # dump previous frame because using first frame as baseline
 
         # set keypoint tracker
-        detector = CvBlobDetector(**blob_detector_params)
-        encoder = KeypointEncoder()
-        view = KeypointView(color=(0, 255, 0))
-        display = CvVideoDisplay(name='preview')
-        display.open()
+        detector = BlobDetector()
+        # detector = ContourBlobDetector()
+        # detector = DoHDetector()
+        # detector = PeakDetector()
 
         # initialise taxels
         x0, y0, x1, y1 = bbox
@@ -72,7 +57,7 @@ def main(
 
         # get initial density
         frame = camera.read()
-        keypoints = encoder.encode(detector.detect(frame))
+        keypoints = detector.extract_keypoints(frame)
         init_density = pin_density(keypoints[:, :2], taxels, kernel_width=kernel_width)
 
         # start a plot for density delta
@@ -91,9 +76,7 @@ def main(
         while True:
             start_time = time.time()
             frame = camera.read()
-            keypoints = encoder.encode(detector.detect(frame))
-            frame = view.draw(frame, keypoints)
-            display.write(frame)
+            keypoints = detector.extract_keypoints(frame)
 
             density = pin_density(keypoints[:, :2], taxels, kernel_width=kernel_width)
             density_delta = density - init_density
@@ -110,7 +93,7 @@ def main(
 
     finally:
         camera.close()
-        display.close()
+        detector.display.close()
 
 
 if __name__ == '__main__':

@@ -5,14 +5,15 @@ from skimage.morphology import medial_axis
 import cv2
 
 from tactile_image_processing.image_transforms import process_image
+from tactile_image_processing.image_processing_utils import convert_image_uint8
 
 from vsp.video_stream import CvVideoCamera, CvVideoDisplay
 from vsp.detector import CvBlobDetector
 from vsp.detector import CvContourBlobDetector
 from vsp.detector import SklDoHBlobDetector
+from vsp.detector import SkeletonizePeakDetector
 from vsp.encoder import KeypointEncoder
 from vsp.view import KeypointView
-from vsp.feature import Keypoint
 
 
 class BlobDetector():
@@ -59,8 +60,8 @@ class ContourBlobDetector():
     def __init__(self):
         self.blob_detector_params = {
               'blur_kernel_size': 9,
-              'min_threshold': 44,
-              'max_threshold': 187,
+              'thresh_block_size': 11,
+              'thresh_constant': -30.0,
               'min_radius': 2,
               'max_radius': 20,
           }
@@ -73,7 +74,6 @@ class ContourBlobDetector():
         self.display.open()
 
     def extract_keypoints(self, image):
-        image = np.squeeze(np.uint8(image*255))
         keypoints = self.encoder.encode(self.detector.detect(image))
         image = self.view.draw(image, keypoints)
         self.display.write(image)
@@ -96,12 +96,11 @@ class DoHDetector():
         # set keypoint tracker
         self.detector = SklDoHBlobDetector(**self.doh_detector_params)
         self.encoder = KeypointEncoder()
-        self.view = KeypointView(color=(0, 255, 255))
+        self.view = KeypointView(color=(255, 0, 255))
         self.display = CvVideoDisplay(name='DoH')
         self.display.open()
 
     def extract_keypoints(self, image):
-        image = np.squeeze(np.uint8(image*255))
         keypoints = self.encoder.encode(self.detector.detect(image))
         image = self.view.draw(image, keypoints)
         self.display.write(image)
@@ -110,95 +109,34 @@ class DoHDetector():
 
 class PeakDetector():
     """
-    Author: Anupam Gupta
+    Author: Anupam Gupta, Alex Church
     """
 
     def __init__(self):
         self.peak_detector_params = {
-              'blur_ker': 5,
-              'min_distance': 6,
-              'kp_size': 2.0,
+              'blur_kernel_size': 9,
+              'min_distance': 8,
+              'threshold_abs': 0.1,
+              'num_peaks': 331,
+              'thresh_block_size': 11,
+              'thresh_constant': -30.0,
         }
 
         # set keypoint tracker
+        self.detector = SkeletonizePeakDetector(**self.peak_detector_params)
         self.encoder = KeypointEncoder()
         self.view = KeypointView(color=(0, 0, 255))
-        self.display = CvVideoDisplay(name='peak')
+        self.display = CvVideoDisplay(name='skeletonize_peak')
         self.display.open()
 
-    def detect(self, image):
-        img_blur = cv2.medianBlur(src=image, ksize=self.peak_detector_params['blur_ker'])
-        img_blur = img_blur - np.min(img_blur)
-        img_blur = img_blur / np.max(img_blur)
-        keypoints = np.fliplr(corner_peaks(img_blur, min_distance=self.peak_detector_params['min_distance']))
-
-        # add sizes to keypoints
-        sizes = np.ones(keypoints.shape[0]) * self.peak_detector_params['kp_size']
-        keypoints = np.hstack([keypoints, sizes[..., np.newaxis]])
-
-        # convert to correct type for drawing
-        keypoints = [cv2.KeyPoint(x[0], x[1], x[2]) for x in keypoints]
-        keypoints = [Keypoint(kp.pt, kp.size) for kp in keypoints]
-
-        return keypoints
-
     def extract_keypoints(self, image):
-        image = np.squeeze(np.uint8(image*255))
-        keypoints = self.encoder.encode(self.detect(image))
+        keypoints = self.encoder.encode(self.detector.detect(image))
         image = self.view.draw(image, keypoints)
         self.display.write(image)
         return keypoints
 
 
-class SkeletonizeDetector():
-    """
-    Author: Alex Church
-    """
-
-    def __init__(self):
-        self.skeletonize_detector_params = {
-            'min_distance': 6,
-            'kp_size': 2.0,
-        }
-
-        # set keypoint tracker
-        self.encoder = KeypointEncoder()
-        self.view = KeypointView(color=(255, 255, 0))
-        self.display = CvVideoDisplay(name='skeletonize')
-        self.display.open()
-
-    def detect(self, image):
-
-        # Compute the medial axis (skeleton) and the distance transform
-        image = np.squeeze(image)
-        skel, distance = medial_axis(image, return_distance=True)
-        image = distance * skel
-
-        # detect keypoints as local peaks
-        keypoints = np.fliplr(peak_local_max(image, min_distance=self.skeletonize_detector_params['min_distance']))
-
-        # add sizes to keypoints
-        sizes = np.ones(keypoints.shape[0]) * self.skeletonize_detector_params['kp_size']
-        keypoints = np.hstack([keypoints, sizes[..., np.newaxis]])
-
-        # convert to correct type for drawing
-        keypoints = [cv2.KeyPoint(x[0], x[1], x[2]) for x in keypoints]
-        keypoints = [Keypoint(kp.pt, kp.size) for kp in keypoints]
-
-        return keypoints
-
-    def extract_keypoints(self, image):
-        image = np.uint8(image*255)
-        keypoints = self.encoder.encode(self.detect(image))
-        image = self.view.draw(image, keypoints)
-        self.display.write(image)
-        return keypoints
-
-
-def main(
-    camera_source=8,
-    image_processing_params={},
-):
+def main(camera_source=8):
 
     try:
         # Windows
@@ -215,24 +153,16 @@ def main(
         contour_blob_detector = ContourBlobDetector()
         doh_detector = DoHDetector()
         peak_detector = PeakDetector()
-        skeletonize_detector = SkeletonizeDetector()
 
         while True:
             start_time = time.time()
-            raw_image = camera.read()
-
-            processed_image = process_image(
-                raw_image.copy(),
-                gray=False,
-                **image_processing_params
-            )
+            frame = camera.read()
 
             # apply keypoint extraction methods
-            blob_detector.extract_keypoints(raw_image)
-            contour_blob_detector.extract_keypoints(processed_image)
-            doh_detector.extract_keypoints(raw_image)
-            peak_detector.extract_keypoints(processed_image)
-            skeletonize_detector.extract_keypoints(processed_image)
+            blob_detector.extract_keypoints(frame)
+            contour_blob_detector.extract_keypoints(frame)
+            doh_detector.extract_keypoints(frame)
+            peak_detector.extract_keypoints(frame)
 
             k = cv2.waitKey(10)
             if k == 27:  # Esc key to stop
@@ -246,20 +176,7 @@ def main(
         contour_blob_detector.display.close()
         doh_detector.display.close()
         peak_detector.display.close()
-        skeletonize_detector.display.close()
 
 
 if __name__ == '__main__':
-    image_processing_params = {
-        'dims': (256, 256),
-        'bbox': [75, 30, 525, 480],
-        'thresh': [11, -30],
-        'stdiz': False,
-        'normlz': True,
-        'circle_mask_radius': 180,
-    }
-
-    main(
-        camera_source=8,
-        image_processing_params=image_processing_params,
-    )
+    main(camera_source=8)
