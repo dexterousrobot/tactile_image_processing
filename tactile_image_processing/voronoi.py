@@ -1,7 +1,7 @@
 """
 Author: John Lloyd,  Nathan Lepora, Wen Fan, Anupam Gupta
 """
-import time
+import argparse
 import itertools
 import numpy as np
 import matplotlib.pyplot as plt
@@ -227,6 +227,25 @@ def main(
     pool_neighbours=3,
 ):
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-d', '--detector',
+        type=str,
+        help="Choose device from ['blob', 'contour', 'doh', 'peak'].",
+        default='blob'
+    )
+    args = parser.parse_args()
+
+    # set keypoint detector
+    if args.detector == 'blob':
+        detector = BlobDetector()
+    elif args.detector == 'contour':
+        detector = ContourBlobDetector()
+    elif args.detector == 'doh':
+        detector = DoHDetector()
+    elif args.detector == 'peak':
+        detector = PeakDetector()
+
     try:
         # Windows
         # camera = CvVideoCamera(source=camera_source, api_name='DSHOW', is_color=False)
@@ -236,12 +255,6 @@ def main(
         camera.set_property('PROP_BUFFERSIZE', 1)
         for j in range(10):
             camera.read()   # dump previous frame because using first frame as baseline
-
-        # set keypoint tracker
-        # detector = BlobDetector()
-        # detector = ContourBlobDetector()
-        # detector = DoHDetector()
-        detector = PeakDetector()
 
         # get initial voronoi map
         frame = camera.read()
@@ -269,9 +282,7 @@ def main(
 
         # start live camera loop
         while True:
-            start_time = time.time()
             frame = camera.read()
-
             keypoints = detector.extract_keypoints(frame)
 
             # extract voronoi tesselation
@@ -303,8 +314,6 @@ def main(
             k = cv2.waitKey(10)
             if k == 27:  # Esc key to stop
                 break
-
-            print('FPS: ', 1.0 / (time.time() - start_time))
 
     finally:
         camera.close()

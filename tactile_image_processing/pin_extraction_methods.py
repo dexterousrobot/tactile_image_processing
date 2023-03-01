@@ -1,11 +1,4 @@
-import time
-import numpy as np
-from skimage.feature import corner_peaks, peak_local_max
-from skimage.morphology import medial_axis
 import cv2
-
-from tactile_image_processing.image_transforms import process_image
-from tactile_image_processing.image_processing_utils import convert_image_uint8
 
 from vsp.video_stream import CvVideoCamera, CvVideoDisplay
 from vsp.detector import CvBlobDetector
@@ -23,19 +16,19 @@ class BlobDetector():
 
     def __init__(self):
         self.blob_detector_params = {
-              'min_threshold': 118,
-              'max_threshold': 188,
+              'min_threshold': 82,
+              'max_threshold': 205,
               'filter_by_color': True,
               'blob_color': 255,
               'filter_by_area': True,
-              'min_area': 41,
-              'max_area': 134.5,
+              'min_area': 35,
+              'max_area': 109,
               'filter_by_circularity': True,
-              'min_circularity': 0.20,
+              'min_circularity': 0.60,
               'filter_by_inertia': True,
-              'min_inertia_ratio': 0.36,
+              'min_inertia_ratio': 0.25,
               'filter_by_convexity': True,
-              'min_convexity': 0.39,
+              'min_convexity': 0.47,
           }
 
         # set keypoint tracker
@@ -59,11 +52,11 @@ class ContourBlobDetector():
 
     def __init__(self):
         self.blob_detector_params = {
-              'blur_kernel_size': 9,
-              'thresh_block_size': 11,
-              'thresh_constant': -30.0,
-              'min_radius': 2,
-              'max_radius': 20,
+              'blur_kernel_size': 7,
+              'thresh_block_size': 15,
+              'thresh_constant': -16.0,
+              'min_radius': 4,
+              'max_radius': 7,
           }
 
         # set keypoint tracker
@@ -115,11 +108,11 @@ class PeakDetector():
     def __init__(self):
         self.peak_detector_params = {
               'blur_kernel_size': 9,
-              'min_distance': 8,
-              'threshold_abs': 0.1,
+              'min_distance': 10,
+              'threshold_abs': 0.4346,
               'num_peaks': 331,
               'thresh_block_size': 11,
-              'thresh_constant': -30.0,
+              'thresh_constant': -34.0,
         }
 
         # set keypoint tracker
@@ -155,7 +148,6 @@ def main(camera_source=8):
         peak_detector = PeakDetector()
 
         while True:
-            start_time = time.time()
             frame = camera.read()
 
             # apply keypoint extraction methods
@@ -167,8 +159,6 @@ def main(camera_source=8):
             k = cv2.waitKey(10)
             if k == 27:  # Esc key to stop
                 break
-
-            print('FPS: ', 1.0 / (time.time() - start_time))
 
     finally:
         camera.close()
