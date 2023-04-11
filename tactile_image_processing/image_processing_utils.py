@@ -1,21 +1,7 @@
 import cv2
 import numpy as np
 
-
-class SimpleSensor:
-    def __init__(
-        self,
-        source=0,
-        exposure=-7,
-    ):
-        self.cam = cv2.VideoCapture(source)
-        self.cam.set(cv2.CAP_PROP_EXPOSURE, exposure)
-        for _ in range(5):
-            self.cam.read()  # Hack - camera transient
-
-    def get_image(self):
-        _, img = self.cam.read()
-        return img
+from tactile_image_processing.simple_sensors import RealSensor
 
 
 def list_camera_sources():
@@ -85,7 +71,7 @@ def camera_loop(
 ):
     cv2.namedWindow(display_name)
     while True:
-        image = camera.get_image()
+        image = camera.process()
         cv2.imshow(display_name, image)
         k = cv2.waitKey(10)
         if k == 27:  # Esc key to stop
@@ -103,8 +89,9 @@ if __name__ == '__main__':
     if source not in working_ports:
         print(f'Camera port {source} not in working_ports: {working_ports}')
 
-    camera = SimpleSensor(
-        source=source
-    )
+    sensor_params = {
+        'source': source,
+    }
+    camera = RealSensor(sensor_params)
 
     camera_loop(camera)

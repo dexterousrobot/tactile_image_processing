@@ -20,7 +20,7 @@ def process_image(
 ):
     ''' Process raw image (e.g., before applying to neural network).
     '''
-    if gray:
+    if gray and len(image.shape) == 3:
         # Convert to gray scale
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # Add channel axis
