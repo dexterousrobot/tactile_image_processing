@@ -31,9 +31,6 @@ def process_image(
         x0, y0, x1, y1 = bbox
         image = image[y0:y1, x0:x1]
 
-    if circle_mask_radius is not None:
-        image = apply_circle_mask(image, circle_mask_radius)
-
     if dims is not None:
         if isinstance(dims, list):
             dims = tuple(dims)
@@ -49,6 +46,11 @@ def process_image(
         # Use adaptive thresholding to create binary image
         image = threshold_image(image, thresh)
         image = image[..., np.newaxis]
+
+    if circle_mask_radius is not None:
+        # Apply mask
+        # needs to be after thresh
+        image = apply_circle_mask(image, circle_mask_radius)
 
     if stdiz:
         # Convert to float and standardise on a per frame basis
