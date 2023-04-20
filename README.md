@@ -12,10 +12,10 @@ This repos contains a collection of tools and utility functions for processing t
 
 ### Content ###
 - [Installation](#installation)
-- [Image Processing](#image_processing)
-- [Marker Extraction](#marker_extraction)
-- [Kernel Density](#kernel_density)
-- [Voronoi Tesselation](#voronoi_tesselation)
+- [Image Processing](#image-processing)
+- [Marker Extraction](#marker-extraction)
+- [Kernel Density](#kernel-density)
+- [Voronoi Tesselation](#voronoi-tesselation)
 - [Additional Info](#additional-info)
 
 
