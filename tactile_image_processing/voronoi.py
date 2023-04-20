@@ -11,10 +11,10 @@ import cv2
 
 from vsp.video_stream import CvVideoCamera
 
-from tactile_image_processing.pin_extraction_methods import BlobDetector
-from tactile_image_processing.pin_extraction_methods import ContourBlobDetector
-from tactile_image_processing.pin_extraction_methods import DoHDetector
-from tactile_image_processing.pin_extraction_methods import PeakDetector
+from tactile_image_processing.marker_extraction_methods import BlobDetector
+from tactile_image_processing.marker_extraction_methods import ContourBlobDetector
+from tactile_image_processing.marker_extraction_methods import DoHDetector
+from tactile_image_processing.marker_extraction_methods import PeakDetector
 
 
 class VoronoiTransformer:

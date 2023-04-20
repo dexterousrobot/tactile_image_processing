@@ -223,3 +223,41 @@ def transform_matrix_offset_center(matrix, x, y):
     reset_matrix = np.array([[1, 0, -o_x], [0, 1, -o_y], [0, 0, 1]])
     transform_matrix = np.dot(np.dot(offset_matrix, matrix), reset_matrix)
     return transform_matrix
+
+
+def camera_loop(
+    camera,
+    image_processing_kwargs,
+    display_name='processed_image',
+):
+
+    cv2.namedWindow(display_name)
+    while True:
+        image = camera.process()
+        processed_image = process_image(image, **image_processing_kwargs)
+        cv2.imshow(display_name, processed_image)
+        k = cv2.waitKey(10)
+        if k == 27:  # Esc key to stop
+            break
+
+
+if __name__ == '__main__':
+
+    from tactile_image_processing.simple_sensors import RealSensor
+
+    sensor_params = {
+        'source': 8,
+    }
+    camera = RealSensor(sensor_params)
+
+    image_processing_kwargs = {
+        'gray': False,
+        'bbox': None,
+        'dims': None,
+        'stdiz': False,
+        'normlz': False,
+        'thresh': [11, -30],
+        'circle_mask_radius': None,
+    }
+
+    camera_loop(camera, image_processing_kwargs)
