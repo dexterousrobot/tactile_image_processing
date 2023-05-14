@@ -1,10 +1,10 @@
 import os
 import numpy as np
 
-from tactile_data.collect_data.setup_embodiment import setup_embodiment
-from tactile_data.collect_data.setup_targets import setup_targets
-from tactile_data.collect_data.setup_targets import POSE_LABEL_NAMES, SHEAR_LABEL_NAMES, OBJECT_POSE_LABEL_NAMES
-from tactile_data.utils import make_dir, save_json_obj
+from tactile_image_processing.collect_data.setup_embodiment import setup_embodiment
+from tactile_image_processing.collect_data.setup_targets import setup_targets
+from tactile_image_processing.collect_data.setup_targets import POSE_LABEL_NAMES, SHEAR_LABEL_NAMES, OBJECT_POSE_LABEL_NAMES
+from tactile_image_processing.utils import make_dir, save_json_obj
 
 BASE_DATA_PATH = 'temp'
 
