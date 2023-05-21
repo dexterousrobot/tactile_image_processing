@@ -229,15 +229,16 @@ def camera_loop(
     camera,
     image_processing_kwargs,
     display_name='processed_image',
+    display_size=(640,480)
 ):
+    cv2.namedWindow(display_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(display_name, *display_size)
 
-    cv2.namedWindow(display_name)
     while True:
         image = camera.process()
         processed_image = process_image(image, **image_processing_kwargs)
         cv2.imshow(display_name, processed_image)
-        k = cv2.waitKey(10)
-        if k == 27:  # Esc key to stop
+        if cv2.waitKey(10)==27:  # Esc key to stop
             break
 
 
@@ -246,11 +247,12 @@ if __name__ == '__main__':
     from tactile_image_processing.simple_sensors import RealSensor
 
     sensor_params = {
-        'source': 8,
+        'source': 1,
     }
+    
     camera = RealSensor(sensor_params)
 
-    image_processing_kwargs = {
+    image_processing_params = {
         'gray': False,
         'bbox': None,
         'dims': None,
@@ -260,4 +262,4 @@ if __name__ == '__main__':
         'circle_mask_radius': None,
     }
 
-    camera_loop(camera, image_processing_kwargs)
+    camera_loop(camera, image_processing_params)

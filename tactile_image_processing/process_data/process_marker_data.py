@@ -8,17 +8,9 @@ from tactile_image_processing.image_transforms import process_image
 from tactile_image_processing.process_data.process_image_data import combine_bbox
 from tactile_image_processing.utils import save_json_obj, load_json_obj
 
-from vsp.video_stream import CvVideoDisplay
-from vsp.detector import CvBlobDetector
-from vsp.detector import CvContourBlobDetector
-from vsp.detector import SklDoHBlobDetector
-from vsp.detector import SkeletonizePeakDetector
-from vsp.encoder import KeypointEncoder
-from vsp.view import KeypointView
+from tactile_image_processing.marker_extraction_methods import MarkerDetector
 
 warnings.simplefilter('always', UserWarning)
-
-BASE_DATA_PATH = 'temp'
 
 
 def process_marker_data(path, dir_names, marker_params={}, image_params={}):
@@ -27,19 +19,10 @@ def process_marker_data(path, dir_names, marker_params={}, image_params={}):
         dir_names = [dir_names]
 
     # set keypoint detector
-    if marker_params['detector_type'] == 'blob':
-        detector = CvBlobDetector(**marker_params['detector_kwargs'])
-    elif marker_params['detector_type'] == 'contour':
-        detector = CvContourBlobDetector(**marker_params['detector_kwargs'])
-    elif marker_params['detector_type'] == 'doh':
-        detector = SklDoHBlobDetector(**marker_params['detector_kwargs'])
-    elif kp_process_params['detector_type'] == 'peak':
-        detector = SkeletonizePeakDetector(**kp_process_params['detector_kwargs'])
-
-    encoder = KeypointEncoder()
-    view = KeypointView(color=(0, 255, 0))
-    display = CvVideoDisplay(name='blob')
-    display.open()
+    if marker_params['detector_kwargs']:
+        detector = MarkerDetector[marker_params['detector_type']](marker_params['detector_kwargs'])
+    else:
+        detector = MarkerDetector[marker_params['detector_type']]()
 
     # marker processing function 
     def process_kps(image, image_params={}):
@@ -48,12 +31,9 @@ def process_marker_data(path, dir_names, marker_params={}, image_params={}):
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
         # extract keypoints; basic identification by sorting
-        kps = encoder.encode(detector.detect(image))
+        kps = detector.extract_keypoints(image)
         sorted_ind = np.lexsort((kps[:, 1], kps[:, 0]))
         kps = kps[sorted_ind]
-
-        # display
-        display.write(view.draw(image, kps))
 
         # normalise by image size and return first two components
         kps[:, 0] = kps[:, 0] / image.shape[1]
@@ -113,14 +93,18 @@ def process_marker_data(path, dir_names, marker_params={}, image_params={}):
 
 if __name__ == "__main__":
 
-    dir_names = ["data_1", "data_2"]
+    from tactile_data.tactile_servo_control import BASE_DATA_PATH
 
-    kp_process_params = {
-        'n_pins': 127,
-        # 'n_pins': 331,
+    dir_names = [r"abb_tactip\edge_2d\train"]
 
-        'image_width': 280,
-        'image_height': 280,
+    image_params = {
+        "bbox": (25, 25, 305, 305),
+        "circle_mask_radius": 133,
+        "thresh": (61, 5)
+    }
+
+    marker_params = {
+        'num_markers': 127, # 331
 
         # 'detector_type': 'blob',
         # 'detector_kwargs': {
@@ -167,4 +151,4 @@ if __name__ == "__main__":
         # },
     }
 
-    process_marker_data(BASE_DATA_PATH, dir_names, kp_process_params)
+    process_marker_data(BASE_DATA_PATH, dir_names, marker_params, image_params)

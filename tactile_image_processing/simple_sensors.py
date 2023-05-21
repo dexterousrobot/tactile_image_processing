@@ -32,7 +32,7 @@ class RealSensor:
             self.cam.read()  # Hack - initial camera transient
 
     def read(self):
-        self.cam.read()  # Hack - throw one away - buffering issue (note - halves frame rate!)
+        # self.cam.read()  # Hack - throw one away - buffering issue (note - halves frame rate!)
         _, img = self.cam.read()
         return img
 

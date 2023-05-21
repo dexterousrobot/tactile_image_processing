@@ -67,14 +67,16 @@ def load_video_frames(filename):
 
 def camera_loop(
     camera,
-    display_name='camera_display'
+    display_name='camera_display',
+    display_size=(480,480)
 ):
-    cv2.namedWindow(display_name)
+    cv2.namedWindow(display_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(display_name, *display_size)
+    
     while True:
         image = camera.process()
         cv2.imshow(display_name, image)
-        k = cv2.waitKey(10)
-        if k == 27:  # Esc key to stop
+        if cv2.waitKey(10)==27:  # Esc key to stop
             break
 
 
@@ -85,13 +87,17 @@ if __name__ == '__main__':
     print(f'Working Ports: {working_ports}')
     print(f'Non-Working Ports: {non_working_ports}')
 
-    source = 8
+    source = 1
     if source not in working_ports:
         print(f'Camera port {source} not in working_ports: {working_ports}')
 
     sensor_params = {
-        'source': source,
+        "source": source,
+        "bbox": (160-15, 80+5, 480-15, 400+5),
+        "circle_mask_radius": 155,
+        "thresh": (11, -30)
     }
+
     camera = RealSensor(sensor_params)
 
     camera_loop(camera)

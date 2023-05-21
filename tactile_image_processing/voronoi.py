@@ -1,7 +1,6 @@
 """
-Author: John Lloyd,  Nathan Lepora, Wen Fan, Anupam Gupta
+Author: Luke Cramphorn, Nathan Lepora, Wen Fan, Anupam Gupta
 """
-import argparse
 import itertools
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,26 +8,22 @@ import scipy
 from scipy.spatial import Voronoi, ConvexHull, Delaunay
 import cv2
 
-from vsp.video_stream import CvVideoCamera
-
-from tactile_image_processing.marker_extraction_methods import BlobDetector
-from tactile_image_processing.marker_extraction_methods import ContourBlobDetector
-from tactile_image_processing.marker_extraction_methods import DoHDetector
-from tactile_image_processing.marker_extraction_methods import PeakDetector
+from tactile_image_processing.marker_extraction_methods import MarkerDetector
+from tactile_image_processing.simple_sensors import RealSensor
 
 
-class VoronoiTransformer:
+class MarkerVoronoi:
     def __init__(self):
         pass
 
-    def voronoi_transform(self, X, border_scale=1.1):
+    def transform(self, X, border_scale=1.1):
         """Voronoi tesselation function.
 
         Input: X = (x,y) pin positions (centroids)
         Returns: Y = (x,y, A) pin positions and cell areas
                  C cells are lists of vertices
         """
-        X = np.squeeze(X)
+        X = np.squeeze(X[:, :2])
         _, unindx = np.unique(X, return_index=True, axis=0)
         unindx = np.sort(unindx)
         X = X[unindx]
@@ -80,7 +75,7 @@ class VoronoiTransformer:
 
         return node_edges
 
-    def create_voronoi_graph(self, nodes_pos):
+    def create_graph(self, nodes_pos):
 
         nodes_pos_norm = np.squeeze(nodes_pos)
         _, unindx = np.unique(nodes_pos_norm, return_index=True, axis=0)
@@ -92,7 +87,7 @@ class VoronoiTransformer:
 
         return clean_nodes_edges, nodes_pos_norm
 
-    def create_voronoi_surface(self, Axx_canon, Cxx_canon, Cyy_canon, pool_neighbours, num_interp_points):
+    def create_surface(self, Axx_canon, Cxx_canon, Cyy_canon, pool_neighbours, num_interp_points):
         cen_coord_canon = np.zeros((len(Axx_canon), 2))
 
         for ii in range(len(Cxx_canon)):
@@ -147,7 +142,7 @@ class VoronoiPlotter:
 
         plt.show(block=False)
 
-    def init_voronoi_image(self, Z_canon):
+    def init_image(self, Z_canon):
         self.img = self.axs[1].imshow(
             Z_canon,
             vmin=0.0,
@@ -158,14 +153,14 @@ class VoronoiPlotter:
         plt.axis('scaled')
         plt.colorbar(self.img, ax=self.axs[1])
 
-    def update_voronoi_image(self, Z_canon):
+    def update_image(self, Z_canon):
         self.img.set_data(Z_canon)
 
-    def plot_voronoi_image(self, Z_canon):
-        self.init_voronoi_image(Z_canon)
+    def plot_image(self, Z_canon):
+        self.init_image(Z_canon)
         plt.show()
 
-    def init_voronoi_graph(
+    def init_graph(
         self,
         cell_center,
         nodes_edges,
@@ -198,102 +193,84 @@ class VoronoiPlotter:
         for i in range(len(nodes_edges)):
             self.axs[0].plot(x_edge_data[i], y_edge_data[i], color='r', zorder=0)
 
-    def update_voronoi_graph(
+    def update_graph(
         self,
         cell_center,
         nodes_edges,
     ):
         self.axs[0].clear()
-        self.init_voronoi_graph(
+        self.init_graph(
             cell_center,
             nodes_edges,
         )
 
-    def plot_voronoi_graph(
+    def plot_graph(
         self,
         cell_center,
         nodes_edges,
     ):
-        self.init_voronoi_graph(
+        self.init_graph(
             cell_center,
             nodes_edges,
         )
         plt.show()
 
 
-def main(
-    camera_source=8,
+def voronoi_loop(camera, 
     num_interp_points=128,
     pool_neighbours=3,
+    detector_type='doh',
+    detector_kwargs=None
 ):
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-d', '--detector',
-        type=str,
-        help="Choose device from ['blob', 'contour', 'doh', 'peak'].",
-        default='blob'
+    if detector_kwargs:
+        detector = MarkerDetector[detector_type](detector_kwargs)
+    else:
+        detector = MarkerDetector[detector_type]()
+
+    marker_voronoi = MarkerVoronoi()
+
+    # get initial voronoi map
+    image = camera.process()
+    if image.shape[2]==1:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    keypoints = detector.extract_keypoints(image)
+
+    Axx_canon, Cxx_canon, Cyy_canon, XY_canon = marker_voronoi.transform(keypoints, border_scale=1.1)
+
+    nodes_edges, _ = marker_voronoi.create_graph(keypoints[:, :2])
+
+    _, _, Z_canon = marker_voronoi.create_surface(
+        Axx_canon,
+        Cxx_canon,
+        Cyy_canon,
+        pool_neighbours=pool_neighbours,
+        num_interp_points=num_interp_points
     )
-    args = parser.parse_args()
 
-    # set keypoint detector
-    if args.detector == 'blob':
-        detector = BlobDetector()
-    elif args.detector == 'contour':
-        detector = ContourBlobDetector()
-    elif args.detector == 'doh':
-        detector = DoHDetector()
-    elif args.detector == 'peak':
-        detector = PeakDetector()
+    voronoi_plotter = VoronoiPlotter()
+    voronoi_plotter.init_image(Z_canon)
+    voronoi_plotter.init_graph(
+        cell_center=XY_canon,
+        nodes_edges=nodes_edges,
+    )
 
+    # start live camera loop
     try:
-        # Windows
-        # camera = CvVideoCamera(source=camera_source, api_name='DSHOW', is_color=False)
-
-        # Linux
-        camera = CvVideoCamera(source=camera_source, frame_size=(640, 480), is_color=False)
-        camera.set_property('PROP_BUFFERSIZE', 1)
-        for j in range(10):
-            camera.read()   # dump previous frame because using first frame as baseline
-
-        # get initial voronoi map
-        frame = camera.read()
-        keypoints = detector.extract_keypoints(frame)
-
-        voronoi_transformer = VoronoiTransformer()
-        Axx_canon, Cxx_canon, Cyy_canon, XY_canon = voronoi_transformer.voronoi_transform(keypoints[:, :2], border_scale=1.1)
-
-        nodes_edges, nodes_pos_norm = voronoi_transformer.create_voronoi_graph(keypoints[:, :2])
-
-        _, _, Z_canon = voronoi_transformer.create_voronoi_surface(
-            Axx_canon,
-            Cxx_canon,
-            Cyy_canon,
-            pool_neighbours=pool_neighbours,
-            num_interp_points=num_interp_points
-        )
-
-        voronoi_plotter = VoronoiPlotter()
-        voronoi_plotter.init_voronoi_image(Z_canon)
-        voronoi_plotter.init_voronoi_graph(
-            cell_center=XY_canon,
-            nodes_edges=nodes_edges,
-        )
-
-        # start live camera loop
         while True:
-            frame = camera.read()
-            keypoints = detector.extract_keypoints(frame)
+            image = camera.process()
+            if image.shape[2]==1:
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            keypoints = detector.extract_keypoints(image)
 
             # extract voronoi tesselation
-            Axx_canon, Cxx_canon, Cyy_canon, XY_canon = voronoi_transformer.voronoi_transform(
-                keypoints[:, :2], border_scale=1.1)
+            Axx_canon, Cxx_canon, Cyy_canon, XY_canon = marker_voronoi.transform(keypoints, border_scale=1.1)
 
             # create a graph from voronoi tesselation
-            nodes_edges, nodes_pos_norm = voronoi_transformer.create_voronoi_graph(keypoints[:, :2])
+            nodes_edges, _ = marker_voronoi.create_graph(keypoints[:, :2])
 
             # create a surface from voronoi tesselation
-            _, _, Z_canon = voronoi_transformer.create_voronoi_surface(
+            _, _, Z_canon = marker_voronoi.create_surface(
                 Axx_canon,
                 Cxx_canon,
                 Cyy_canon,
@@ -302,23 +279,46 @@ def main(
             )
 
             # can be used to update the graph plot but this is slow
-            # voronoi_plotter.update_voronoi_graph(
-            #     cell_center=XY_canon,
-            #     nodes_edges=nodes_edges,
-            # )
+            voronoi_plotter.update_graph(
+                cell_center=XY_canon,
+                nodes_edges=nodes_edges,
+            )
 
-            voronoi_plotter.update_voronoi_image(Z_canon)
+            voronoi_plotter.update_image(Z_canon)
             plt.draw()
             voronoi_plotter.fig.canvas.flush_events()
 
-            k = cv2.waitKey(10)
-            if k == 27:  # Esc key to stop
+            if cv2.waitKey(10)==27:  # Esc key to stop
                 break
 
     finally:
-        camera.close()
         detector.display.close()
 
 
 if __name__ == '__main__':
-    main(camera_source=8)
+
+    sensor_params = {
+        "source": 1,
+        "bbox": (160-15, 80+5, 480-15, 400+5),
+        "circle_mask_radius": 155,
+        "thresh": (11, -30)
+    }
+
+    camera = RealSensor(sensor_params)
+
+    marker_kwargs = {
+        'detector_type': 'doh',
+        'detector_kwargs': {
+            'min_sigma': 5,
+            'max_sigma': 6,
+            'num_sigma': 5,
+            'threshold': 0.015,
+        }
+    }
+
+    voronoi_kwargs = {
+        'num_interp_points': 128,
+        'pool_neighbours': 3
+    }
+
+    voronoi_loop(camera, **voronoi_kwargs, **marker_kwargs)
